@@ -1,0 +1,32 @@
+from django.db import migrations
+from django.utils.text import slugify
+
+CATALOGUE = [
+    ('ard-001', 'Arduino UNO R4 WiFi', 'ARD-UNO-R4-WIFI', 'Arduino', 'Arduino', '2499', '2999', 48, 'arduino-uno-r4-wifi.svg', 'Techtron Electronics'),
+    ('ard-002', 'Arduino Mega 2560 R3', 'ARD-MEGA-2560-R3', 'Arduino', 'Arduino', '1899', '2299', 120, 'arduino-mega-2560-r3.svg', 'RoboParts India'),
+    ('ard-003', 'Arduino Nano Every', 'ARD-NANO-EVERY', 'Arduino', 'Arduino', '749', '999', 230, 'arduino-nano-every.svg', 'Techtron Electronics'),
+    ('rpi-001', 'Raspberry Pi 5 (8GB RAM)', 'RPI5-8GB', 'Raspberry Pi', 'Raspberry Pi', '7499', '8499', 35, 'raspberry-pi-5.svg', 'CircuitHub Technologies'),
+    ('rpi-002', 'Raspberry Pi 4 Model B (4GB)', 'RPI4-4GB', 'Raspberry Pi', 'Raspberry Pi', '5999', '6999', 72, 'raspberry-pi-4-model-b.svg', 'CircuitHub Technologies'),
+    ('esp-001', 'ESP8266 NodeMCU V3', 'ESP8266-V3', 'ESP32 / ESP8266', 'Espressif', '299', '399', 100, 'esp8266-nodemcu-v3.svg', 'Embedded World'),
+    ('sen-001', 'DHT22 Temperature & Humidity Sensor', 'DHT22', 'Sensors', 'Sensors', '199', '249', 80, 'dht22-temperature-humidity-sensor.svg', 'Maker Components'),
+]
+
+def seed(apps, schema_editor):
+    User = apps.get_model('accounts', 'CustomUser')
+    Vendor = apps.get_model('accounts', 'VendorProfile')
+    Product = apps.get_model('products', 'Product')
+    vendors = {}
+    for index, name in enumerate(['Techtron Electronics', 'RoboParts India', 'CircuitHub Technologies', 'Embedded World', 'Maker Components']):
+        user = User.objects.create(email=f'seed-{index}@electrohub.local', username=f'seed-{index}@electrohub.local', first_name=name.split()[0], password='!seed-only!', role='vendor')
+        vendors[name] = Vendor.objects.create(user=user, business_name=name, city='Bengaluru', status='approved')
+    for external_id, name, sku, category, brand, price, original, stock, image, vendor_name in CATALOGUE:
+        Product.objects.create(external_id=external_id, name=name, slug=external_id, sku=sku, category_name=category, brand_name=brand, price=price, discount_price=price, stock=stock, vendor=vendors[vendor_name], image=f'products/{image}', short_description=f'{name} for makers and engineers.', description=f'{name} from ElectroHub marketplace.')
+
+def unseed(apps, schema_editor):
+    apps.get_model('products', 'Product').objects.filter(external_id__isnull=False).delete()
+    apps.get_model('accounts', 'VendorProfile').objects.filter(user__username__startswith='seed-').delete()
+    apps.get_model('accounts', 'CustomUser').objects.filter(username__startswith='seed-').delete()
+
+class Migration(migrations.Migration):
+    dependencies = [('products', '0002_product_external_id')]
+    operations = [migrations.RunPython(seed, unseed)]
