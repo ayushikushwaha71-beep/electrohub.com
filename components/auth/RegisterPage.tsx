@@ -61,7 +61,7 @@ export function RegisterPage() {
   const [showCPwd, setShowCPwd]           = React.useState(false);
 
   React.useEffect(() => {
-    if (isLoggedIn) router.replace('/');
+    if (isLoggedIn) router.replace('/account');
   }, [isLoggedIn, router]);
 
   const {
@@ -75,12 +75,17 @@ export function RegisterPage() {
 
   const onSubmit = async (data: RegisterForm) => {
     setApiError('');
-    const err = await authReg(data.name, data.email, data.password);
-    if (err) {
-      setApiError(err.message);
+    // register() returns { error, user } — use the returned user directly
+    // so routing works without relying on async React state.
+    const { error, user: newUser } = await authReg(data.name, data.email, data.password);
+    if (error) {
+      setApiError(error.message);
     } else {
       toast.success('Account created!', { description: `Welcome to ElectroHub, ${data.name.split(' ')[0]}!` });
-      router.push('/');
+      // Customers always land on /account; vendors/admins go to their dashboards
+      if (newUser?.role === 'vendor') router.push('/vendor/dashboard');
+      else if (newUser?.role === 'admin') router.push('/admin/vendors');
+      else router.push('/account');
     }
   };
 

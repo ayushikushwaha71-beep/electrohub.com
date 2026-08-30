@@ -23,9 +23,16 @@ export function LoginPage() {
   const [apiError, setApiError]       = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
 
-  // Redirect if already logged in
+  // Helper: derive redirect path from role
+  function roleRedirect(role: string | undefined) {
+    if (role === 'vendor') return '/vendor/dashboard';
+    if (role === 'admin')  return '/admin/vendors';
+    return '/account';
+  }
+
+  // Redirect if already logged in (e.g. navigated to /login while session active)
   React.useEffect(() => {
-    if (isLoggedIn) router.replace(user?.role === 'vendor' ? '/vendor/dashboard' : user?.role === 'admin' ? '/admin/vendors' : '/');
+    if (isLoggedIn) router.replace(roleRedirect(user?.role));
   }, [isLoggedIn, router, user?.role]);
 
   const {
@@ -36,12 +43,14 @@ export function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     setApiError('');
-    const err = await login(data.email, data.password);
-    if (err) {
-      setApiError(err.message);
+    // login() returns { error, user } — use the returned user directly
+    // so routing works without waiting for React state to re-render.
+    const { error, user: loggedInUser } = await login(data.email, data.password);
+    if (error) {
+      setApiError(error.message);
     } else {
       toast.success('Welcome back!');
-      router.push(user?.role === 'vendor' ? '/vendor/dashboard' : user?.role === 'admin' ? '/admin/vendors' : '/');
+      router.push(roleRedirect(loggedInUser?.role));
     }
   };
 

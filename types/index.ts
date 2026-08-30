@@ -53,7 +53,8 @@ export interface ProductSpecGroup {
 }
 
 export interface Product {
-  id:               ID;
+  id:               ID;               // slug — used for routing
+  numericId?:       number;           // Django DB primary key — used for order creation API
   name:             string;
   brand:            string;
   brandId:          ID;

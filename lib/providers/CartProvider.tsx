@@ -2,73 +2,43 @@
 
 import * as React from 'react';
 import type { Product } from '@/types';
-import { PRODUCTS } from '@/lib/data/products';
-import { getProductVendor } from '@/lib/data/mockVendors';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 export interface CartItem {
-  product: Product;
-  quantity: number;
-  vendorId?: string;
+  product:     Product;
+  quantity:    number;
+  vendorId?:   string;
   vendorName?: string;
 }
 
 interface CartContextValue {
-  items: CartItem[];
-  totalItems: number;
-  subtotal: number;
-  shipping: number;
-  total: number;
-  addItem: (product: Product, qty?: number) => void;
-  removeItem: (productId: string) => void;
-  updateQty: (productId: string, qty: number) => void;
-  clearCart: () => void;
-  isInCart: (productId: string) => boolean;
-  getQty: (productId: string) => number;
+  items:       CartItem[];
+  totalItems:  number;
+  subtotal:    number;
+  shipping:    number;
+  total:       number;
+  addItem:     (product: Product, qty?: number) => void;
+  removeItem:  (productId: string) => void;
+  updateQty:   (productId: string, qty: number) => void;
+  clearCart:   () => void;
+  isInCart:    (productId: string) => boolean;
+  getQty:      (productId: string) => number;
 }
 
 // ─── Context ───────────────────────────────────────────────────────────────────
 const CartContext = React.createContext<CartContextValue | null>(null);
 
-const STORAGE_KEY = 'electrohub_cart';
-const SEEDED_KEY  = 'electrohub_cart_seeded';
+const STORAGE_KEY            = 'electrohub_cart';
 const FREE_SHIPPING_THRESHOLD = 499;
-const FLAT_SHIPPING = 49;
+const FLAT_SHIPPING           = 49;
 
-// ─── Mock seed (shown on first visit, before user has set their own cart) ─
-const MOCK_CART_IDS: Array<{ id: string; qty: number }> = [
-  { id: 'ard-001', qty: 1 },
-  { id: 'esp-001', qty: 2 },
-  { id: 'sen-001', qty: 1 },
-];
-
-function getMockSeed(): CartItem[] {
-  const byId = new Map(PRODUCTS.map((p) => [p.id, p]));
-  return MOCK_CART_IDS
-    .map(({ id, qty }) => {
-      const p = byId.get(id);
-      return p ? { product: p, quantity: qty, ...getProductVendor(p.id) } : null;
-    })
-    .filter(Boolean) as CartItem[];
-}
-
-function hasBeenSeeded(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(SEEDED_KEY) === 'true';
-}
-
-function markSeeded() {
-  if (typeof window === 'undefined') return;
-  try { localStorage.setItem(SEEDED_KEY, 'true'); } catch { /* ignore */ }
-}
-
-function loadFromStorage(): CartItem[] | null {
-  if (typeof window === 'undefined') return null;
+function loadFromStorage(): CartItem[] {
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
+    if (!Array.isArray(parsed)) return [];
     // Validate shape — filter out malformed entries
     return parsed.filter(
       (item: unknown) =>
@@ -79,7 +49,7 @@ function loadFromStorage(): CartItem[] | null {
         typeof (item as CartItem).quantity === 'number',
     ) as CartItem[];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -88,27 +58,18 @@ function saveToStorage(items: CartItem[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   } catch {
-    // ignore
+    // ignore quota errors
   }
 }
 
 // ─── Provider ──────────────────────────────────────────────────────────────────
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = React.useState<CartItem[]>([]);
+  const [items,    setItems]    = React.useState<CartItem[]>([]);
   const [hydrated, setHydrated] = React.useState(false);
 
-  // Hydrate from localStorage on mount
+  // Hydrate from localStorage on mount — no mock seed
   React.useEffect(() => {
-    if (!hasBeenSeeded()) {
-      // First ever visit → show demo items so the cart page looks populated
-      const seed = getMockSeed();
-      setItems(seed);
-      markSeeded();
-    } else {
-      // Returning visit → restore whatever the user had (may be empty)
-      const stored = loadFromStorage();
-      setItems(stored ?? []);
-    }
+    setItems(loadFromStorage());
     setHydrated(true);
   }, []);
 
@@ -127,7 +88,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           i.product.id === product.id ? { ...i, quantity: newQty } : i,
         );
       }
-      return [...prev, { product, quantity: Math.min(qty, product.stock, 10), ...getProductVendor(product.id) }];
+      // Use vendor info from the product object (from real API)
+      return [...prev, {
+        product,
+        quantity:   Math.min(qty, product.stock, 10),
+        vendorId:   product.vendorId,
+        vendorName: product.vendorName,
+      }];
     });
   }, []);
 

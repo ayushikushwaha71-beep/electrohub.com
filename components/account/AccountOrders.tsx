@@ -24,7 +24,44 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { formatINR, formatDate } from '@/utils/format';
-import type { MockOrder } from './mockOrders';
+// Local type that matches the Django OrderSerializer → mapped to this shape
+interface RealOrder {
+  id:             string;
+  orderNumber:    string;
+  userId:         string;
+  items:          Array<{
+    id:           string;
+    productId:    string;
+    productName:  string;
+    productImage: string;
+    sku:          string;
+    quantity:     number;
+    sellingPrice: number;
+    originalPrice:number;
+    discount:     number;
+  }>;
+  subtotal:       number;
+  discount:       number;
+  deliveryCharge: number;
+  total:          number;
+  status:         OrderStatus;
+  paymentMethod:  string;
+  paymentStatus:  string;
+  trackingNumber?:string;
+  estimatedDelivery?: string;
+  createdAt:      string;
+  updatedAt:      string;
+  shippingAddress: {
+    firstName: string;
+    lastName:  string;
+    phone:     string;
+    line1:     string;
+    city:      string;
+    state:     string;
+    pincode:   string;
+    country:   string;
+  };
+}
 import { api } from '@/lib/api';
 import type { OrderStatus } from '@/types';
 
@@ -63,23 +100,58 @@ function getTrackingProgress(status: OrderStatus): number {
 
 export function AccountOrders() {
   const { user } = useAuth();
-  const [orders, setOrders]           = React.useState<MockOrder[]>([]);
-  const [selectedOrder, setSelected]  = React.useState<MockOrder | null>(null);
-  const [search, setSearch]           = React.useState('');
+  const [orders, setOrders]          = React.useState<RealOrder[]>([]);
+  const [selectedOrder, setSelected] = React.useState<RealOrder | null>(null);
+  const [search, setSearch]          = React.useState('');
 
   React.useEffect(() => {
     if (!user?.id) return;
-    api.get<{ results?: Array<{ id: number; order_number: string; total_amount: string; status: string; payment_method: string; created_at: string; updated_at: string; full_name: string; phone: string; address: string; city: string; state: string; pincode: string; items: Array<{ id: number; product: number; product_name: string; quantity: number; unit_price: string; total_price: string }> }> } | Array<{ id: number; order_number: string; total_amount: string; status: string; payment_method: string; created_at: string; updated_at: string; full_name: string; phone: string; address: string; city: string; state: string; pincode: string; items: Array<{ id: number; product: number; product_name: string; quantity: number; unit_price: string; total_price: string }> }>>('/orders/', { token: localStorage.getItem('electrohub_access_token') ?? '' })
+    const accessToken = localStorage.getItem('electrohub_access_token') ?? '';
+    interface ApiOrderItem { id: number; product: number; product_name: string; quantity: number; unit_price: string; total_price: string; }
+    interface ApiOrder { id: number; order_number: string; total_amount: string; status: string; payment_method: string; created_at: string; updated_at: string; full_name: string; phone: string; address: string; city: string; state: string; pincode: string; items: ApiOrderItem[]; }
+    api.get<{ results?: ApiOrder[] } | ApiOrder[]>('/orders/', { token: accessToken })
       .then((response) => {
-        const records = Array.isArray(response) ? response : response.results ?? [];
+        const records: ApiOrder[] = Array.isArray(response) ? response : (response.results ?? []);
+        // Map Django order status → front-end OrderStatus
+        const mapStatus = (s: string): OrderStatus => {
+          if (s === 'completed') return 'delivered';
+          const valid: OrderStatus[] = ['pending','confirmed','processing','shipped','out_for_delivery','delivered','cancelled','returned','refunded'];
+          return valid.includes(s as OrderStatus) ? (s as OrderStatus) : 'pending';
+        };
         setOrders(records.map((order) => ({
-          id: String(order.id), orderNumber: order.order_number, userId: user.id,
-          items: order.items.map((item) => ({ id: String(item.id), productId: String(item.product), productName: item.product_name, productImage: '', sku: '', quantity: item.quantity, sellingPrice: Number(item.unit_price), originalPrice: Number(item.unit_price), discount: 0 })),
-          subtotal: Number(order.total_amount), discount: 0, deliveryCharge: 0, total: Number(order.total_amount),
-          status: (order.status === 'completed' ? 'delivered' : order.status) as OrderStatus,
-          paymentMethod: order.payment_method, paymentStatus: order.payment_method === 'cod' ? 'pending' : 'paid',
-          createdAt: order.created_at, updatedAt: order.updated_at,
-          shippingAddress: { firstName: order.full_name.split(' ')[0], lastName: order.full_name.split(' ').slice(1).join(' '), phone: order.phone, line1: order.address, city: order.city, state: order.state, pincode: order.pincode, country: 'India' },
+          id:          String(order.id),
+          orderNumber: order.order_number,
+          userId:      user.id,
+          items:       order.items.map((item) => ({
+            id:           String(item.id),
+            productId:    String(item.product),
+            productName:  item.product_name,
+            productImage: '',
+            sku:          '',
+            quantity:     item.quantity,
+            sellingPrice: Number(item.unit_price),
+            originalPrice:Number(item.unit_price),
+            discount:     0,
+          })),
+          subtotal:       Number(order.total_amount),
+          discount:       0,
+          deliveryCharge: 0,
+          total:          Number(order.total_amount),
+          status:         mapStatus(order.status),
+          paymentMethod:  order.payment_method,
+          paymentStatus:  order.payment_method === 'cod' ? 'pending' : 'paid',
+          createdAt:      order.created_at,
+          updatedAt:      order.updated_at,
+          shippingAddress: {
+            firstName: order.full_name.split(' ')[0] ?? '',
+            lastName:  order.full_name.split(' ').slice(1).join(' '),
+            phone:     order.phone,
+            line1:     order.address,
+            city:      order.city,
+            state:     order.state,
+            pincode:   order.pincode,
+            country:   'India',
+          },
         })));
       })
       .catch(() => setOrders([]));
@@ -226,7 +298,7 @@ export function AccountOrders() {
 
 // ── Order Detail ───────────────────────────────────────────────────────────────
 
-function OrderDetail({ order, onBack }: { order: MockOrder; onBack: () => void }) {
+function OrderDetail({ order, onBack }: { order: RealOrder; onBack: () => void }) {
   const statusCfg = STATUS_CONFIG[order.status];
   const StatusIcon = statusCfg.icon;
   const progress = getTrackingProgress(order.status);

@@ -5,3 +5,13 @@ out/
 .env.local
 .env.*.local
 *.log
+node_modules/
+.next/
+__pycache__/
+*.pyc
+*.pyo
+*.tsbuildinfo
+.env
+.env.local
+venv/
+.venv/

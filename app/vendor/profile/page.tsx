@@ -1,2 +1,5 @@
-import { VendorProfilePage } from '@/components/vendor/VendorPortal';
-export default function VendorProfileRoute() { return <VendorProfilePage />; }
+import { RealVendorProfile } from '@/components/vendor/VendorRealPortal';
+
+export default function VendorProfileRoute() {
+  return <RealVendorProfile />;
+}

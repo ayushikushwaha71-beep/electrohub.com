@@ -13,7 +13,21 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
     },
   });
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.detail || data?.message || 'Something went wrong with the API request.');
+  if (!response.ok) {
+    // DRF can return errors as: { detail }, { message }, { field: [msgs] }, { non_field_errors: [msgs] }
+    const msg =
+      data?.detail ||
+      data?.message ||
+      data?.non_field_errors?.[0] ||
+      (typeof data === 'object' && data !== null
+        ? Object.values(data as Record<string, unknown>)
+            .flatMap((v) => (Array.isArray(v) ? v : [v]))
+            .filter(Boolean)
+            .join(' ')
+        : null) ||
+      'Something went wrong.';
+    throw new Error(msg);
+  }
   return data;
 }
 

@@ -30,7 +30,6 @@ import { useCart }      from '@/lib/providers/CartProvider';
 import { useAuth }      from '@/lib/providers/AuthProvider';
 import { formatINR, calculateDiscount } from '@/utils/format';
 import type { CartItem } from '@/lib/providers/CartProvider';
-import { getProductVendor } from '@/lib/data/mockVendors';
 import { api } from '@/lib/api';
 
 // ─── Indian States ──────────────────────────────────────────────────────────────
@@ -125,7 +124,7 @@ function OrderItemRow({ item }: { item: CartItem }) {
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-[var(--text)] line-clamp-1">{product.name}</p>
         <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Qty: {quantity}</p>
-        <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Sold by {getProductVendor(product.id).vendorName}</p>
+        <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Sold by {product.vendorName ?? 'ElectroHub'}</p>
       </div>
       <span className="text-xs font-bold text-[var(--text)] shrink-0">
         {formatINR(product.sellingPrice * quantity)}
@@ -526,7 +525,11 @@ export function CheckoutPage() {
       const response = await api.post<{ order_number: string }>('/orders/', {
         ...data,
         payment_method: payment,
-        items: items.map((item) => ({ product_id: item.product.id, quantity: item.quantity })),
+        items: items.map((item) => ({
+          // Use numeric DB primary key when available (real API products)
+          product_id: item.product.numericId ?? item.product.id,
+          quantity: item.quantity,
+        })),
       }, { token: localStorage.getItem('electrohub_access_token') ?? '' });
       setOrderNumber(response.order_number);
       setConfirmedData(data);

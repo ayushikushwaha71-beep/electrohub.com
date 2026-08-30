@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -124,6 +125,7 @@ function MegaMenu({ open }: { open: boolean }) {
 // ─── User Menu (desktop) ─────────────────────────────────────────────────────
 function UserMenu() {
   const { user, isLoggedIn, logout } = useAuth();
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -198,9 +200,8 @@ function UserMenu() {
             {/* Menu items */}
             <div className="p-1.5">
               {[
-                { label: 'My Orders',  href: '/' },
+                { label: 'My Account', href: '/account' },
                 { label: 'Wishlist',   href: '/wishlist' },
-                { label: 'Profile',    href: '/' },
               ].map(({ label, href }) => (
                 <Link
                   key={label}
@@ -217,7 +218,7 @@ function UserMenu() {
             {/* Logout */}
             <div className="p-1.5 border-t border-[var(--border)]">
               <button
-                onClick={() => { logout(); setOpen(false); }}
+                onClick={() => { logout(); setOpen(false); router.push('/login'); }}
                 className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors"
                 id="logout-btn"
               >
@@ -321,6 +322,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
 // ─── Mobile Auth Section ──────────────────────────────────────────────────────
 function MobileAuthSection({ onClose }: { onClose: () => void }) {
   const { user, isLoggedIn, logout } = useAuth();
+  const router = useRouter();
 
   if (isLoggedIn && user) {
     return (
@@ -335,7 +337,7 @@ function MobileAuthSection({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <button
-          onClick={() => { logout(); onClose(); }}
+          onClick={() => { logout(); onClose(); router.push('/login'); }}
           className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-[var(--danger)]/30 text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors"
         >
           <LogOut size={14} /> Sign Out

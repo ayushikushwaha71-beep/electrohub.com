@@ -51,7 +51,7 @@ export function AccountSidebar({
   const handleLogout = () => {
     logout();
     toast.success('Signed out successfully');
-    router.push('/');
+    router.push('/login');
   };
 
   const initials = user?.name
