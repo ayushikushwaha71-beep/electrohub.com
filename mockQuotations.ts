@@ -8,12 +8,14 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type MockQuotationStatus =
-  | 'sent'         // admin sent, not yet viewed
-  | 'viewed'       // customer opened it
-  | 'negotiating'  // customer submitted a counter-offer
-  | 'revised'      // admin sent a revised quotation
-  | 'accepted'     // customer accepted
-  | 'rejected';    // customer rejected
+  | 'sent'              // admin sent, not yet viewed
+  | 'viewed'            // customer opened it
+  | 'negotiating'       // customer submitted a counter-offer
+  | 'revised'           // admin sent a revised quotation
+  | 'accepted'          // customer accepted
+  | 'rejected'          // customer rejected
+  | 'invoice_sent'      // admin issued GST invoice, awaiting payment
+  | 'payment_confirmed'; // customer confirmed payment / admin marked as paid
 
 export interface MockNegotiationEntry {
   id:           string;
@@ -296,6 +298,67 @@ const SEED_QUOTATIONS: MockQuotation[] = [
     status:          'rejected',
     sentAt:          new Date(Date.now() - 35 * 86400000).toISOString(),
     updatedAt:       new Date(Date.now() - 30 * 86400000).toISOString(),
+    negotiations:    [],
+  },
+  // ── Invoice / Payment seeds ──────────────────────────────────────────────
+  {
+    id:              'quot-seed-007',
+    quotationNumber: 'QT-2026-000501',
+    rfqNumber:       'RFQ-2026-000501',
+    rfqId:           'rfq-seed-008',
+    userId:          '__seed__',
+    productName:     'Arduino UNO R4 WiFi (Qty 30)',
+    productType:     'existing',
+    quantity:        30,
+    unitPrice:       2499,
+    discountPct:     5,
+    taxPct:          18,
+    shippingCharge:  0,
+    deliveryLocation: 'Bengaluru, Karnataka 560034',
+    expectedDelivery: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+    availableQty:    80,
+    reservedQty:     30,
+    incomingQty:     0,
+    eta:             '',
+    validUntil:      new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+    termsNotes:
+      '1. GST invoice issued post acceptance.\n' +
+      '2. Payment via NEFT/RTGS within 7 days of invoice.\n' +
+      '3. Goods dispatched after payment confirmation.',
+    // status 'invoice_sent' — GST invoice raised, awaiting customer payment
+    status:          'invoice_sent',
+    sentAt:          new Date(Date.now() - 5 * 86400000).toISOString(),
+    updatedAt:       new Date(Date.now() - 1 * 86400000).toISOString(),
+    negotiations:    [],
+  },
+  {
+    id:              'quot-seed-008',
+    quotationNumber: 'QT-2026-000448',
+    rfqNumber:       'RFQ-2026-000448',
+    rfqId:           'rfq-seed-009',
+    userId:          '__seed__',
+    productName:     'Raspberry Pi 5 8GB (Qty 10)',
+    productType:     'existing',
+    quantity:        10,
+    unitPrice:       7999,
+    discountPct:     0,
+    taxPct:          18,
+    shippingCharge:  0,
+    deliveryLocation: 'Pune, Maharashtra 411001',
+    expectedDelivery: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+    availableQty:    15,
+    reservedQty:     10,
+    incomingQty:     0,
+    eta:             '',
+    validUntil:      new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+    termsNotes:
+      '1. GST invoice issued; GSTIN: 27XYZAB1234C1Z0.\n' +
+      '2. Full payment received via NEFT.\n' +
+      '3. Goods ready for dispatch.',
+    // status 'payment_confirmed' — payment received
+    status:          'payment_confirmed',
+    sentAt:          new Date(Date.now() - 14 * 86400000).toISOString(),
+    updatedAt:       new Date(Date.now() - 2 * 86400000).toISOString(),
     negotiations:    [],
   },
 ];

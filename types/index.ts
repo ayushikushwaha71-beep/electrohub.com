@@ -260,6 +260,7 @@ export type OrderStatus =
   | 'shipped'
   | 'out_for_delivery'
   | 'delivered'
+  | 'completed'
   | 'cancelled'
   | 'returned'
   | 'refunded';
@@ -398,4 +399,23 @@ export interface RevenueDataPoint {
   date:    string;
   revenue: number;
   orders:  number;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RFQ Types
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Shape of the customer-facing RFQ submission form */
+export interface RFQFormData {
+  productType:         'existing' | 'custom';
+  existingProductId?:  string;
+  existingProductName?: string;
+  customProductName:   string;
+  referenceUrl?:       string;
+  quantity:            number;
+  requiredByDate:      string;
+  deliveryLocation:    string;
+  budget:              string;
+  technicalSpecs:      string;
+  additionalNotes:     string;
 }

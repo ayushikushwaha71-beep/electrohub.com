@@ -7,7 +7,6 @@ import {
   ShoppingBag,
   Package,
   ChevronRight,
-  ChevronDown,
   Truck,
   Clock,
   CheckCircle2,
@@ -17,6 +16,7 @@ import {
   MapPin,
   CreditCard,
   Search,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/lib/providers/AuthProvider';
@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { formatINR, formatDate } from '@/utils/format';
+import { getStoredOrders } from './mockOrders';
 // Local type that matches the Django OrderSerializer → mapped to this shape
 interface RealOrder {
   id:             string;
@@ -51,6 +52,9 @@ interface RealOrder {
   estimatedDelivery?: string;
   createdAt:      string;
   updatedAt:      string;
+  // B2B quotation linkage (optional)
+  quotationRef?:     string;
+  quotationNumber?:  string;
   shippingAddress: {
     firstName: string;
     lastName:  string;
@@ -75,6 +79,7 @@ const STATUS_CONFIG: Record<
   shipped:          { label: 'Shipped',           variant: 'info',    icon: Truck        },
   out_for_delivery: { label: 'Out for Delivery',  variant: 'warning', icon: Truck        },
   delivered:        { label: 'Delivered',         variant: 'success', icon: CheckCircle2 },
+  completed:        { label: 'Completed',         variant: 'success', icon: CheckCircle2 },
   cancelled:        { label: 'Cancelled',         variant: 'danger',  icon: XCircle      },
   returned:         { label: 'Returned',          variant: 'default', icon: ArrowLeft    },
   refunded:         { label: 'Refunded',          variant: 'default', icon: RefreshCw    },
@@ -94,6 +99,7 @@ const TRACKING_STEPS: OrderStatus[] = ['confirmed', 'processing', 'shipped', 'ou
 function getTrackingProgress(status: OrderStatus): number {
   if (status === 'pending')  return 0;
   if (status === 'cancelled' || status === 'returned' || status === 'refunded') return -1;
+  if (status === 'completed') return TRACKING_STEPS.length; // fully done
   const idx = TRACKING_STEPS.indexOf(status);
   return idx >= 0 ? idx + 1 : 0;
 }
@@ -106,6 +112,11 @@ export function AccountOrders() {
 
   React.useEffect(() => {
     if (!user?.id) return;
+
+    // ── Load B2B mock orders from localStorage (quotation-linked) ──────────
+    const mockB2BOrders = getStoredOrders(user.id);
+
+    // ── Load real orders from Django backend ───────────────────────────────
     const accessToken = localStorage.getItem('electrohub_access_token') ?? '';
     interface ApiOrderItem { id: number; product: number; product_name: string; quantity: number; unit_price: string; total_price: string; }
     interface ApiOrder { id: number; order_number: string; total_amount: string; status: string; payment_method: string; created_at: string; updated_at: string; full_name: string; phone: string; address: string; city: string; state: string; pincode: string; items: ApiOrderItem[]; }
@@ -114,11 +125,10 @@ export function AccountOrders() {
         const records: ApiOrder[] = Array.isArray(response) ? response : (response.results ?? []);
         // Map Django order status → front-end OrderStatus
         const mapStatus = (s: string): OrderStatus => {
-          if (s === 'completed') return 'delivered';
-          const valid: OrderStatus[] = ['pending','confirmed','processing','shipped','out_for_delivery','delivered','cancelled','returned','refunded'];
+          const valid: OrderStatus[] = ['pending','confirmed','processing','shipped','out_for_delivery','delivered','completed','cancelled','returned','refunded'];
           return valid.includes(s as OrderStatus) ? (s as OrderStatus) : 'pending';
         };
-        setOrders(records.map((order) => ({
+        const apiOrders: RealOrder[] = records.map((order) => ({
           id:          String(order.id),
           orderNumber: order.order_number,
           userId:      user.id,
@@ -142,6 +152,8 @@ export function AccountOrders() {
           paymentStatus:  order.payment_method === 'cod' ? 'pending' : 'paid',
           createdAt:      order.created_at,
           updatedAt:      order.updated_at,
+          quotationRef:   undefined,
+          quotationNumber:undefined,
           shippingAddress: {
             firstName: order.full_name.split(' ')[0] ?? '',
             lastName:  order.full_name.split(' ').slice(1).join(' '),
@@ -152,9 +164,26 @@ export function AccountOrders() {
             pincode:   order.pincode,
             country:   'India',
           },
-        })));
+        }));
+        // Merge: B2B mock orders first (most recent), then API orders
+        // Deduplicate by order number in case backend returns some B2B orders too
+        const apiOrderNumbers = new Set(apiOrders.map((o) => o.orderNumber));
+        const b2bAsReal: RealOrder[] = mockB2BOrders.map((mo) => ({
+          ...mo,
+          quotationRef:    mo.quotationRef,
+          quotationNumber: mo.quotationNumber,
+        })).filter((mo) => !apiOrderNumbers.has(mo.orderNumber));
+        setOrders([...b2bAsReal, ...apiOrders]);
       })
-      .catch(() => setOrders([]));
+      .catch(() => {
+        // Backend unreachable — still show mock B2B orders
+        const b2bAsReal: RealOrder[] = mockB2BOrders.map((mo) => ({
+          ...mo,
+          quotationRef:    mo.quotationRef,
+          quotationNumber: mo.quotationNumber,
+        }));
+        setOrders(b2bAsReal);
+      });
   }, [user?.id]);
 
   const filtered = orders.filter((o) =>
@@ -237,6 +266,11 @@ export function AccountOrders() {
                       <Badge variant={statusCfg.variant} size="xs" icon={<StatusIcon size={10} />}>
                         {statusCfg.label}
                       </Badge>
+                      {order.quotationNumber && (
+                        <Badge variant="default" size="xs" icon={<FileText size={9} />}>
+                          {order.quotationNumber}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                       <span>{formatDate(order.createdAt)}</span>
@@ -320,6 +354,12 @@ function OrderDetail({ order, onBack }: { order: RealOrder; onBack: () => void }
         <div>
           <h2 className="font-bold font-display text-[var(--text)] text-lg leading-none">{order.orderNumber}</h2>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">Placed on {formatDate(order.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          {order.quotationNumber && (
+            <p className="text-xs text-[var(--text-muted)] mt-0.5 flex items-center gap-1">
+              <FileText size={11} className="text-[var(--primary)]" />
+              B2B Order · Quotation <span className="font-mono text-[var(--primary)]">{order.quotationNumber}</span>
+            </p>
+          )}
         </div>
         <Badge variant={statusCfg.variant} size="sm" icon={<StatusIcon size={11} />} className="ml-auto">
           {statusCfg.label}

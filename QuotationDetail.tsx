@@ -30,10 +30,12 @@ import {
   DollarSign,
   ExternalLink,
   FileText,
+  IndianRupee,
   Link2,
   MapPin,
   Package,
   Percent,
+  Receipt,
   Send,
   Sparkles,
   Truck,
@@ -43,7 +45,6 @@ import {
   MessageSquare,
   RotateCcw,
   AlertTriangle,
-  Receipt,
   BadgeCheck,
   User,
 } from 'lucide-react';
@@ -51,6 +52,7 @@ import { cn } from '@/utils/cn';
 import { Badge }   from '@/components/ui/Badge';
 import { Button }  from '@/components/ui/Button';
 import { Modal }   from '@/components/ui/Modal';
+import { B2BPayment } from './B2BPayment';
 import {
   type MockQuotation,
   type MockQuotationStatus,
@@ -64,12 +66,14 @@ export const QUOT_STATUS_CONFIG: Record<
   MockQuotationStatus,
   { label: string; variant: 'default' | 'warning' | 'info' | 'success' | 'danger'; icon: React.ElementType }
 > = {
-  sent:        { label: 'Quotation Received', variant: 'info',    icon: FileText      },
-  viewed:      { label: 'Viewed',             variant: 'info',    icon: CheckCircle2  },
-  negotiating: { label: 'Under Negotiation',  variant: 'warning', icon: MessageSquare },
-  revised:     { label: 'Revised',            variant: 'info',    icon: RotateCcw     },
-  accepted:    { label: 'Accepted',           variant: 'success', icon: CheckCircle2  },
-  rejected:    { label: 'Rejected',           variant: 'danger',  icon: XCircle       },
+  sent:              { label: 'Quotation Received', variant: 'info',    icon: FileText      },
+  viewed:            { label: 'Viewed',             variant: 'info',    icon: CheckCircle2  },
+  negotiating:       { label: 'Under Negotiation',  variant: 'warning', icon: MessageSquare },
+  revised:           { label: 'Revised',            variant: 'info',    icon: RotateCcw     },
+  accepted:          { label: 'Accepted',           variant: 'success', icon: CheckCircle2  },
+  rejected:          { label: 'Rejected',           variant: 'danger',  icon: XCircle       },
+  invoice_sent:      { label: 'Invoice Sent',       variant: 'info',    icon: Receipt       },
+  payment_confirmed: { label: 'Payment Confirmed',  variant: 'success', icon: IndianRupee   },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -470,15 +474,131 @@ function ConfirmModal({
   );
 }
 
+// ─── Lifecycle Stepper ────────────────────────────────────────────────────────
+
+interface LifecycleStep {
+  key:    string;
+  label:  string;
+  icon:   React.ElementType;
+  doneAt: MockQuotationStatus[];
+}
+
+const LIFECYCLE_STEPS: LifecycleStep[] = [
+  { key: 'rfq',         label: 'RFQ',        icon: FileText,       doneAt: ['sent','viewed','negotiating','revised','accepted','invoice_sent','payment_confirmed'] },
+  { key: 'quote',       label: 'Quotation',  icon: Receipt,        doneAt: ['viewed','negotiating','revised','accepted','invoice_sent','payment_confirmed'] },
+  { key: 'negotiation', label: 'Review',     icon: MessageSquare,  doneAt: ['accepted','invoice_sent','payment_confirmed'] },
+  { key: 'approval',    label: 'Approval',   icon: BadgeCheck,     doneAt: ['invoice_sent','payment_confirmed'] },
+  { key: 'po',          label: 'PO',         icon: NotebookText,   doneAt: ['invoice_sent','payment_confirmed'] },
+  { key: 'invoice',     label: 'Invoice',    icon: IndianRupee,    doneAt: ['invoice_sent','payment_confirmed'] },
+  { key: 'payment',     label: 'Payment',    icon: CheckCircle2,   doneAt: ['payment_confirmed'] },
+  { key: 'ship',        label: 'Shipment',   icon: Truck,          doneAt: ['payment_confirmed'] },
+];
+
+function LifecycleStepper({
+  status,
+  onNavigateToOrders,
+}: {
+  status:              MockQuotationStatus;
+  onNavigateToOrders?: () => void;
+}) {
+  const doneSet = new Set(
+    LIFECYCLE_STEPS
+      .filter((s) => s.doneAt.includes(status))
+      .map((s) => s.key),
+  );
+
+  const activeIdx = LIFECYCLE_STEPS.findIndex((s) => !doneSet.has(s.key));
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-card)] p-5 shadow-[var(--shadow-card)]">
+      <div className="flex items-center gap-1.5 mb-5">
+        <Truck size={15} className="text-[var(--primary)]" />
+        <h3 className="text-sm font-semibold text-[var(--text)]">Order Lifecycle</h3>
+        <span className="text-xs text-[var(--text-subtle)] ml-auto hidden sm:block">
+          Full procurement journey
+        </span>
+      </div>
+
+      {/* Stepper — scrollable on mobile */}
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div className="flex items-center min-w-max gap-0">
+          {LIFECYCLE_STEPS.map((step, idx) => {
+            const Icon     = step.icon;
+            const isDone   = doneSet.has(step.key);
+            const isActive = idx === activeIdx;
+            const isLast   = idx === LIFECYCLE_STEPS.length - 1;
+
+            return (
+              <React.Fragment key={step.key}>
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className={cn(
+                    'w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                    isDone
+                      ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-sm'
+                      : isActive
+                      ? 'bg-[var(--primary)]/10 border-[var(--primary)] text-[var(--primary)]'
+                      : 'bg-[var(--background-alt)] border-[var(--border)] text-[var(--text-subtle)]',
+                  )}>
+                    <Icon size={15} />
+                  </div>
+                  <span className={cn(
+                    'text-[10px] font-medium whitespace-nowrap',
+                    isDone   ? 'text-[var(--primary)]' :
+                    isActive ? 'text-[var(--text)]' :
+                               'text-[var(--text-subtle)]',
+                  )}>
+                    {step.label}
+                  </span>
+                </div>
+                {!isLast && (
+                  <div className={cn(
+                    'h-0.5 w-7 xl:w-10 shrink-0 mb-4 transition-colors duration-300',
+                    isDone ? 'bg-[var(--primary)]' : 'bg-[var(--border)]',
+                  )} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Track Order CTA */}
+      {status === 'payment_confirmed' && onNavigateToOrders && (
+        <div className="mt-4 pt-4 border-t border-[var(--border)] flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-7 h-7 rounded-full bg-[var(--success)]/10 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={14} className="text-[var(--success)]" />
+            </div>
+            <p className="text-sm text-[var(--text-muted)] leading-snug">
+              Payment confirmed — your order is being prepared for dispatch.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Truck size={13} />}
+            onClick={onNavigateToOrders}
+            id="lifecycle-track-order"
+          >
+            Track Shipment
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main QuotationDetail Component
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export interface QuotationDetailProps {
-  quotation:         MockQuotation;
-  onBack:            () => void;
-  onStatusChange:    (status: MockQuotationStatus) => void;
-  onAddNegotiation:  (proposedPrice: number, message: string) => void;
+  quotation:            MockQuotation;
+  onBack:               () => void;
+  onStatusChange:       (status: MockQuotationStatus) => void;
+  onAddNegotiation:     (proposedPrice: number, message: string) => void;
+  onPaymentSubmit?:     (utr: string) => void;
+  onNavigateToOrders?:  () => void;
 }
 
 export function QuotationDetail({
@@ -486,6 +606,8 @@ export function QuotationDetail({
   onBack,
   onStatusChange,
   onAddNegotiation,
+  onPaymentSubmit,
+  onNavigateToOrders,
 }: QuotationDetailProps) {
   const [negotiateOpen, setNegotiateOpen] = React.useState(false);
   const [confirmMode, setConfirmMode]     = React.useState<'accept' | 'reject' | null>(null);
@@ -496,7 +618,14 @@ export function QuotationDetail({
   const daysLeft    = quotation.validUntil ? daysUntil(quotation.validUntil) : null;
   const isExpired   = daysLeft !== null && daysLeft < 0;
   const isExpiring  = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
-  const canAct      = !isExpired && quotation.status !== 'accepted' && quotation.status !== 'rejected';
+  // canAct: only for negotiable statuses; invoice/payment statuses are read-only
+  const canAct      = !isExpired &&
+    quotation.status !== 'accepted' &&
+    quotation.status !== 'rejected' &&
+    quotation.status !== 'invoice_sent' &&
+    quotation.status !== 'payment_confirmed';
+
+  const isPaymentStage = quotation.status === 'invoice_sent' || quotation.status === 'payment_confirmed';
 
   // Mark as viewed on mount
   React.useEffect(() => {
@@ -516,6 +645,11 @@ export function QuotationDetail({
 
   const handleNegotiate = (proposedPrice: number, message: string) => {
     onAddNegotiation(proposedPrice, message);
+  };
+
+  const handlePaymentSubmit = (utr: string) => {
+    onStatusChange('payment_confirmed');
+    onPaymentSubmit?.(utr);
   };
 
   return (
@@ -631,12 +765,24 @@ export function QuotationDetail({
               </p>
               <p className="text-xs text-[var(--text-muted)]">
                 {quotation.status === 'accepted'
-                  ? 'Our team will contact you shortly to proceed with the order.'
+                  ? 'Our team will issue a GST invoice once the order is processed. You will be notified shortly.'
                   : 'Feel free to submit a new RFQ if your requirements change.'}
               </p>
             </div>
           </div>
         )}
+
+        {/* ── B2B Payment panel (invoice_sent or payment_confirmed) ── */}
+        {isPaymentStage && (
+          <B2BPayment
+            quotation={quotation}
+            onPaymentSubmit={handlePaymentSubmit}
+            onNavigateToOrders={onNavigateToOrders}
+          />
+        )}
+
+        {/* ── Lifecycle summary stepper ── */}
+        <LifecycleStepper status={quotation.status} onNavigateToOrders={onNavigateToOrders} />
 
         <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
           {/* ── Left column ── */}

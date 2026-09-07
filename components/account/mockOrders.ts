@@ -31,6 +31,9 @@ export interface MockOrder {
   status:         OrderStatus;
   paymentMethod:  string;
   paymentStatus:  string;
+  // B2B quotation linkage (optional — only set for RFQ-sourced orders)
+  quotationRef?:     string;  // quotation id
+  quotationNumber?:  string;  // human-readable quotation number e.g. QT-2026-000501
   trackingNumber?:string;
   estimatedDelivery?: string;
   createdAt:      string;
@@ -204,4 +207,90 @@ export function saveOrders(userId: string, orders: MockOrder[]) {
   } catch {
     // ignore
   }
+}
+
+/**
+ * Create a B2B order from a payment_confirmed quotation.
+ * Idempotent: returns existing order if one already exists for this quotation.
+ * Saves directly to localStorage.
+ */
+export function createOrderFromQuotation(params: {
+  userId:          string;
+  quotationId:     string;
+  quotationNumber: string;
+  productName:     string;
+  quantity:        number;
+  grandTotal:      number;
+  deliveryLocation: string;
+  expectedDelivery: string;
+  unitPrice:       number;
+  discountPct:     number;
+  taxPct:          number;
+  shippingCharge:  number;
+}): MockOrder {
+  const orders = getStoredOrders(params.userId);
+  // Idempotency: return existing if already created
+  const existing = orders.find((o) => o.quotationRef === params.quotationId);
+  if (existing) return existing;
+
+  const sub      = params.quantity * params.unitPrice;
+  const disc     = sub * (params.discountPct / 100);
+  const taxable  = sub - disc;
+  const discAmt  = disc;
+
+  // Parse delivery address from location string e.g. "Bengaluru, Karnataka 560034"
+  const locationParts = params.deliveryLocation.split(',').map((s) => s.trim());
+  const city          = locationParts[0] ?? params.deliveryLocation;
+  const statePinPart  = locationParts[1] ?? '';
+  const statePin      = statePinPart.trim().split(' ');
+  const pincode       = statePin.pop() ?? '';
+  const state         = statePin.join(' ') || 'India';
+
+  const now     = new Date().toISOString();
+  const orderId = `ord-b2b-${Date.now()}`;
+  const seq     = (orders.filter((o) => o.quotationRef).length + 1).toString().padStart(4, '0');
+  const orderNumber = `EH-B2B-${new Date().getFullYear()}-${seq}`;
+
+  const newOrder: MockOrder = {
+    id:             orderId,
+    orderNumber,
+    userId:         params.userId,
+    items: [{
+      id:           `oi-b2b-${Date.now()}`,
+      productId:    `b2b-${params.quotationId}`,
+      productName:  params.productName,
+      productImage: '',
+      sku:          `B2B-${params.quotationNumber.replace('QT-', '')}`,
+      quantity:     params.quantity,
+      sellingPrice: params.unitPrice,
+      originalPrice:params.unitPrice,
+      discount:     discAmt,
+    }],
+    subtotal:       taxable,
+    discount:       discAmt,
+    deliveryCharge: params.shippingCharge,
+    total:          params.grandTotal,
+    status:         'confirmed',
+    paymentMethod:  'netbanking',
+    paymentStatus:  'paid',
+    trackingNumber: undefined,
+    estimatedDelivery: params.expectedDelivery,
+    createdAt:      now,
+    updatedAt:      now,
+    quotationRef:     params.quotationId,
+    quotationNumber:  params.quotationNumber,
+    shippingAddress: {
+      firstName: 'B2B',
+      lastName:  'Customer',
+      phone:     '',
+      line1:     params.deliveryLocation,
+      city,
+      state,
+      pincode,
+      country:   'India',
+    },
+  };
+
+  saveOrders(params.userId, [...orders, newOrder]);
+  return newOrder;
 }

@@ -74,7 +74,7 @@ export function AccountDashboard() {
               {activeSection === 'addresses'   && <AccountAddresses />}
               {activeSection === 'orders'      && <AccountOrders />}
               {activeSection === 'rfqs'        && <AccountRFQs onSectionChange={setActiveSection} />}
-              {activeSection === 'quotations'  && <AccountQuotations />}
+              {activeSection === 'quotations'  && <AccountQuotations onSectionChange={setActiveSection} />}
             </div>
           </div>
         </div>

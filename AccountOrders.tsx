@@ -11,12 +11,15 @@ import {
   Truck,
   Clock,
   CheckCircle2,
+  BadgeCheck,
   XCircle,
   RefreshCw,
   ArrowLeft,
   MapPin,
   CreditCard,
   Search,
+  Receipt,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/lib/providers/AuthProvider';
@@ -37,6 +40,7 @@ const STATUS_CONFIG: Record<
   shipped:          { label: 'Shipped',           variant: 'info',    icon: Truck        },
   out_for_delivery: { label: 'Out for Delivery',  variant: 'warning', icon: Truck        },
   delivered:        { label: 'Delivered',         variant: 'success', icon: CheckCircle2 },
+  completed:        { label: 'Completed',         variant: 'success', icon: BadgeCheck   },
   cancelled:        { label: 'Cancelled',         variant: 'danger',  icon: XCircle      },
   returned:         { label: 'Returned',          variant: 'default', icon: ArrowLeft    },
   refunded:         { label: 'Refunded',          variant: 'default', icon: RefreshCw    },
@@ -51,7 +55,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 // Timeline steps for order tracking
-const TRACKING_STEPS: OrderStatus[] = ['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
+const TRACKING_STEPS: OrderStatus[] = ['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'completed'];
 
 function getTrackingProgress(status: OrderStatus): number {
   if (status === 'pending')  return 0;
@@ -190,13 +194,20 @@ export function AccountOrders() {
                   </div>
 
                   {/* Delivery info */}
-                  {order.estimatedDelivery && order.status !== 'delivered' && order.status !== 'cancelled' && (
+                  {order.estimatedDelivery && order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'cancelled' && (
                     <div className="px-5 pb-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
                       <Truck size={12} />
                       <span>
                         {order.status === 'shipped' ? 'Expected by' : 'Estimated delivery'}
                         {' '}<strong className="text-[var(--text)]">{formatDate(order.estimatedDelivery, { weekday: 'short', day: 'numeric', month: 'short' })}</strong>
                       </span>
+                    </div>
+                  )}
+                  {/* B2B badge */}
+                  {order.quotationRef && (
+                    <div className="px-5 pb-3 flex items-center gap-1.5 text-xs text-[var(--text-subtle)]">
+                      <Sparkles size={11} className="text-violet-500" />
+                      <span>B2B Order · {order.quotationNumber}</span>
                     </div>
                   )}
                 </motion.div>
@@ -244,8 +255,17 @@ function OrderDetail({ order, onBack }: { order: MockOrder; onBack: () => void }
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-card)] p-5 shadow-[var(--shadow-card)]">
           <h3 className="font-semibold text-sm text-[var(--text)] mb-5 flex items-center gap-2">
             <Truck size={16} className="text-[var(--primary)]" />
-            Order Tracking
+            {order.quotationRef ? 'B2B Order Tracking' : 'Order Tracking'}
           </h3>
+          {/* B2B quotation source badge */}
+          {order.quotationRef && (
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg border border-violet-500/20 bg-violet-500/5">
+              <Sparkles size={13} className="text-violet-500 shrink-0" />
+              <span className="text-xs text-[var(--text-muted)]">
+                From quotation <span className="font-mono font-semibold text-[var(--text)]">{order.quotationNumber}</span>
+              </span>
+            </div>
+          )}
           <div className="relative">
             {/* Progress bar */}
             <div className="absolute left-4 top-5 bottom-5 w-0.5 bg-[var(--border)]" />

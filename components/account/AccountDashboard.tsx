@@ -9,8 +9,10 @@ import { AccountOverview } from './AccountOverview';
 import { AccountProfile } from './AccountProfile';
 import { AccountAddresses } from './AccountAddresses';
 import { AccountOrders } from './AccountOrders';
+import { AccountRFQs } from '@/AccountRFQs';
+import { AccountQuotations } from '@/AccountQuotations';
 
-export type AccountSection = 'overview' | 'profile' | 'addresses' | 'orders';
+export type AccountSection = 'overview' | 'profile' | 'addresses' | 'orders' | 'rfqs' | 'quotations';
 
 export function AccountDashboard() {
   const { isLoggedIn, isLoading } = useAuth();
@@ -71,6 +73,8 @@ export function AccountDashboard() {
               {activeSection === 'profile'    && <AccountProfile />}
               {activeSection === 'addresses'  && <AccountAddresses />}
               {activeSection === 'orders'     && <AccountOrders />}
+              {activeSection === 'rfqs'       && <AccountRFQs onSectionChange={setActiveSection} />}
+              {activeSection === 'quotations' && <AccountQuotations onSectionChange={setActiveSection} />}
             </div>
           </div>
         </div>

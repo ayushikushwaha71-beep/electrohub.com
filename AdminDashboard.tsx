@@ -5,17 +5,21 @@ import { motion } from 'framer-motion';
 import {
   ArrowUpRight,
   Banknote,
+  BadgeCheck,
   BarChart3,
   Box,
   Building2,
   CheckCircle2,
   CircleDollarSign,
+  ClipboardList,
   CreditCard,
   FileText,
   FolderOpen,
   LayoutDashboard,
   Package,
+  Receipt,
   Search,
+  Send,
   Settings,
   ShoppingBag,
   Star,
@@ -35,11 +39,15 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
 import { formatINR, formatDate } from '@/utils/format';
-import { AdminRFQs } from './AdminRFQs';
+import { AdminRFQs }           from './AdminRFQs';
+import { AdminApprovals }      from './AdminApprovals';
+import { AdminVendorNotify }   from './AdminVendorNotify';
+import { AdminPurchaseOrder }  from './AdminPurchaseOrder';
+import { AdminInvoice }        from './AdminInvoice';
 
 type ProductStatus = 'active' | 'draft' | 'low-stock';
 
-type AdminSection = 'dashboard' | 'rfqs';
+type AdminSection = 'dashboard' | 'rfqs' | 'approvals' | 'vendor-notify' | 'purchase-order' | 'invoice';
 
 type AdminNavItem = {
   label: string;
@@ -68,15 +76,19 @@ type OrderRow = {
 };
 
 const NAV_ITEMS: AdminNavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, active: true },
-  { label: 'Products',  icon: Package },
-  { label: 'Categories',icon: FolderOpen },
-  { label: 'Brands',    icon: Building2 },
-  { label: 'Orders',    icon: ShoppingBag },
-  { label: 'RFQ Mgmt', icon: FileText },
-  { label: 'Users',     icon: Users },
-  { label: 'Reviews',   icon: Star },
-  { label: 'Settings',  icon: Settings },
+  { label: 'Dashboard',      icon: LayoutDashboard, active: true },
+  { label: 'Products',       icon: Package },
+  { label: 'Categories',     icon: FolderOpen },
+  { label: 'Brands',         icon: Building2 },
+  { label: 'Orders',         icon: ShoppingBag },
+  { label: 'RFQ Mgmt',      icon: FileText },
+  { label: 'Approvals',      icon: BadgeCheck },
+  { label: 'Vendor Notify',  icon: Send },
+  { label: 'Purchase Order', icon: ClipboardList },
+  { label: 'Invoice',        icon: Receipt },
+  { label: 'Users',          icon: Users },
+  { label: 'Reviews',        icon: Star },
+  { label: 'Settings',       icon: Settings },
 ];
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'info' | 'default' | 'danger'> = {
@@ -214,15 +226,23 @@ export function AdminDashboard() {
             <nav className="space-y-1">
               {NAV_ITEMS.map(({ label, icon: Icon }) => {
                 const isActive =
-                  (label === 'Dashboard' && activeSection === 'dashboard') ||
-                  (label === 'RFQ Mgmt' && activeSection === 'rfqs');
+                  (label === 'Dashboard'      && activeSection === 'dashboard') ||
+                  (label === 'RFQ Mgmt'       && activeSection === 'rfqs') ||
+                  (label === 'Approvals'      && activeSection === 'approvals') ||
+                  (label === 'Vendor Notify'  && activeSection === 'vendor-notify') ||
+                  (label === 'Purchase Order' && activeSection === 'purchase-order') ||
+                  (label === 'Invoice'        && activeSection === 'invoice');
                 return (
                   <button
                     key={label}
                     type="button"
                     onClick={() => {
-                      if (label === 'RFQ Mgmt') setActiveSection('rfqs');
-                      else if (label === 'Dashboard') setActiveSection('dashboard');
+                      if (label === 'RFQ Mgmt')         setActiveSection('rfqs');
+                      else if (label === 'Dashboard')        setActiveSection('dashboard');
+                      else if (label === 'Approvals')        setActiveSection('approvals');
+                      else if (label === 'Vendor Notify')    setActiveSection('vendor-notify');
+                      else if (label === 'Purchase Order')   setActiveSection('purchase-order');
+                      else if (label === 'Invoice')          setActiveSection('invoice');
                       else toast.info(`${label} section coming soon`);
                     }}
                     className={cn(
@@ -245,6 +265,14 @@ export function AdminDashboard() {
           <main className="space-y-6">
             {activeSection === 'rfqs' ? (
               <AdminRFQs />
+            ) : activeSection === 'approvals' ? (
+              <AdminApprovals />
+            ) : activeSection === 'vendor-notify' ? (
+              <AdminVendorNotify />
+            ) : activeSection === 'purchase-order' ? (
+              <AdminPurchaseOrder onNavigateToInvoice={() => setActiveSection('invoice')} />
+            ) : activeSection === 'invoice' ? (
+              <AdminInvoice />
             ) : (
             <React.Fragment>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -11,6 +11,8 @@ import {
   X,
   ChevronRight,
   Zap,
+  FileText,
+  Receipt,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/lib/providers/AuthProvider';
@@ -26,10 +28,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'overview',   label: 'Overview',   icon: LayoutDashboard, description: 'Dashboard summary' },
-  { id: 'profile',    label: 'Profile',    icon: User,            description: 'Personal info' },
-  { id: 'addresses',  label: 'Addresses',  icon: MapPin,          description: 'Shipping addresses' },
-  { id: 'orders',     label: 'Orders',     icon: ShoppingBag,     description: 'Order history' },
+  { id: 'overview',    label: 'Overview',    icon: LayoutDashboard, description: 'Dashboard summary' },
+  { id: 'profile',     label: 'Profile',     icon: User,            description: 'Personal info' },
+  { id: 'addresses',   label: 'Addresses',   icon: MapPin,          description: 'Shipping addresses' },
+  { id: 'orders',      label: 'Orders',      icon: ShoppingBag,     description: 'Order history' },
+  { id: 'rfqs',        label: 'RFQs',        icon: FileText,        description: 'Request for Quotation' },
+  { id: 'quotations',  label: 'Quotations',  icon: Receipt,         description: 'B2B Quotations' },
 ];
 
 interface AccountSidebarProps {

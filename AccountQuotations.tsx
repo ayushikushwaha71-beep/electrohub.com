@@ -23,6 +23,7 @@ import {
   XCircle,
   MessageSquare,
   RotateCcw,
+  Truck,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/lib/providers/AuthProvider';
@@ -39,16 +40,20 @@ import {
   type MockQuotation,
   type MockQuotationStatus,
 } from './mockQuotations';
+import { createOrderFromQuotation } from './mockOrders';
+import type { AccountSection } from './AccountDashboard';
 
 // ─── Filter tabs ──────────────────────────────────────────────────────────────
 
 const FILTER_TABS: { label: string; value: MockQuotationStatus | 'all' }[] = [
-  { label: 'All',           value: 'all'         },
-  { label: 'New',           value: 'sent'        },
-  { label: 'Negotiating',   value: 'negotiating' },
-  { label: 'Revised',       value: 'revised'     },
-  { label: 'Accepted',      value: 'accepted'    },
-  { label: 'Rejected',      value: 'rejected'    },
+  { label: 'All',               value: 'all'               },
+  { label: 'New',               value: 'sent'              },
+  { label: 'Negotiating',       value: 'negotiating'       },
+  { label: 'Revised',           value: 'revised'           },
+  { label: 'Accepted',          value: 'accepted'          },
+  { label: 'Invoice Sent',      value: 'invoice_sent'      },
+  { label: 'Payment Confirmed', value: 'payment_confirmed' },
+  { label: 'Rejected',          value: 'rejected'          },
 ];
 
 // ─── Quotation card ───────────────────────────────────────────────────────────
@@ -195,7 +200,11 @@ function QuotationCard({
 // Main AccountQuotations Component
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function AccountQuotations() {
+export function AccountQuotations({
+  onSectionChange,
+}: {
+  onSectionChange?: (section: AccountSection) => void;
+}) {
   const { user } = useAuth();
   const [quotations, setQuotations]     = React.useState<MockQuotation[]>([]);
   const [selected, setSelected]         = React.useState<MockQuotation | null>(null);
@@ -232,6 +241,33 @@ export function AccountQuotations() {
     setQuotations(next);
   };
 
+  const handlePaymentSubmit = (_utr: string) => {
+    // Status already transitioned to payment_confirmed via onStatusChange in QuotationDetail.
+    // Now auto-create a linked B2B order in mockOrders so it appears in Account > Orders.
+    if (!user?.id || !selected) return;
+    // Derive grand total from quotation fields
+    const sub      = selected.quantity * selected.unitPrice;
+    const disc     = sub * (selected.discountPct / 100);
+    const taxable  = sub - disc;
+    const taxTotal = taxable * (selected.taxPct / 100);
+    const grand    = taxable + taxTotal + selected.shippingCharge;
+
+    createOrderFromQuotation({
+      userId:           user.id,
+      quotationId:      selected.id,
+      quotationNumber:  selected.quotationNumber,
+      productName:      selected.productName,
+      quantity:         selected.quantity,
+      grandTotal:       grand,
+      deliveryLocation: selected.deliveryLocation,
+      expectedDelivery: selected.expectedDelivery,
+      unitPrice:        selected.unitPrice,
+      discountPct:      selected.discountPct,
+      taxPct:           selected.taxPct,
+      shippingCharge:   selected.shippingCharge,
+    });
+  };
+
   // Filtering
   const filtered = quotations.filter((q) => {
     const matchSearch =
@@ -250,6 +286,8 @@ export function AccountQuotations() {
         onBack={() => setSelected(null)}
         onStatusChange={handleStatusChange}
         onAddNegotiation={handleAddNegotiation}
+        onPaymentSubmit={handlePaymentSubmit}
+        onNavigateToOrders={onSectionChange ? () => onSectionChange('orders') : undefined}
       />
     );
   }
